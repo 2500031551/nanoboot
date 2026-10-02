@@ -12,7 +12,9 @@ OBJS = \
 	kernel/entry.o \
 	kernel/start.o \
 	kernel/trap.o \
-	kernel/trap_asm.o
+	kernel/trap_asm.o\
+        kernel/syscall.o \
+	kernel/user.o
 
 all: $(KERNEL)
 
@@ -27,7 +29,10 @@ kernel/trap.o: kernel/trap.c
 
 kernel/trap_asm.o: kernel/trap.S
 	$(CC) $(CFLAGS) -c $< -o $@
-
+kernel/syscall.o: kernel/syscall.c
+	$(CC) $(CFLAGS) -c $< -o $@
+kernel/user.o: kernel/user.c
+	$(CC) $(CFLAGS) -c $< -o $@
 $(KERNEL): $(OBJS) linker.ld
 	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS) -o $@
 

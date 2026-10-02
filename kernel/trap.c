@@ -1,6 +1,7 @@
 #include <stdint.h>
 
 extern void trap_entry(void);
+extern uint64_t syscall_handler(uint64_t syscall_number);
 
 void trap_handler(void)
 {
@@ -19,12 +20,31 @@ void trap_handler(void)
         *uart = msg[i];
     }
 
-    if (cause == 9) {
-        const char *ecall_msg = "S-mode ECALL!\n";
+    /*
+     * Cause 8 = Environment call from User mode.
+     * Cause 9 = Environment call from Supervisor mode.
+     */
+    if (cause == 8 || cause == 9) {
+        uint64_t syscall_number;
 
-        for (int i = 0; ecall_msg[i] != '\0'; i++) {
-            *uart = ecall_msg[i];
+        asm volatile(
+            "mv %0, a7"
+            : "=r"(syscall_number)
+        );
+
+        const char *msg2 = "Syscall number received!\n";
+
+        for (int i = 0; msg2[i] != '\0'; i++) {
+            *uart = msg2[i];
         }
+
+        uint64_t result = syscall_handler(syscall_number);
+
+        asm volatile(
+            "mv a0, %0"
+            :
+            : "r"(result)
+        );
     }
 }
 
