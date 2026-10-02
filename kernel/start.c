@@ -16,6 +16,20 @@ void kmain(void)
 
     trap_init();
 
+    const char *msg2 = "Triggering trap...\n";
+
+    for (int i = 0; msg2[i] != '\0'; i++) {
+        *uart = msg2[i];
+    }
+
+    asm volatile(".word 0");
+
+    const char *msg3 = "Returned from trap!\n";
+
+    for (int i = 0; msg3[i] != '\0'; i++) {
+        *uart = msg3[i];
+    }
+
     while (1) {
         // Keep the kernel running.
     }
