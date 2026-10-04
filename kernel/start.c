@@ -4,6 +4,7 @@
 
 extern void trap_init(void);
 extern void user_program(void);
+extern void process_init(void);
 
 static volatile uint8_t *uart = (uint8_t *)UART0;
 
@@ -13,6 +14,17 @@ void kmain(void)
 
     for (int i = 0; msg[i] != '\0'; i++) {
         *uart = msg[i];
+    }
+
+    /*
+     * Initialize the process table.
+     */
+    process_init();
+
+    const char *msg_process = "Process system initialized!\n";
+
+    for (int i = 0; msg_process[i] != '\0'; i++) {
+        *uart = msg_process[i];
     }
 
     trap_init();
@@ -57,3 +69,4 @@ void kmain(void)
     while (1) {
     }
 }
+

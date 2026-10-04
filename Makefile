@@ -1,3 +1,4 @@
+
 CROSS = riscv64-unknown-elf-
 CC = $(CROSS)gcc
 LD = $(CROSS)ld
@@ -12,9 +13,10 @@ OBJS = \
 	kernel/entry.o \
 	kernel/start.o \
 	kernel/trap.o \
-	kernel/trap_asm.o\
-        kernel/syscall.o \
-	kernel/user.o
+	kernel/trap_asm.o \
+	kernel/syscall.o \
+	kernel/user.o \
+	kernel/process.o
 
 all: $(KERNEL)
 
@@ -29,10 +31,16 @@ kernel/trap.o: kernel/trap.c
 
 kernel/trap_asm.o: kernel/trap.S
 	$(CC) $(CFLAGS) -c $< -o $@
+
 kernel/syscall.o: kernel/syscall.c
 	$(CC) $(CFLAGS) -c $< -o $@
+
 kernel/user.o: kernel/user.c
 	$(CC) $(CFLAGS) -c $< -o $@
+
+kernel/process.o: kernel/process.c
+	$(CC) $(CFLAGS) -I kernel -c $< -o $@
+
 $(KERNEL): $(OBJS) linker.ld
 	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS) -o $@
 
@@ -42,6 +50,6 @@ clean:
 qemu: $(KERNEL)
 	qemu-system-riscv64 \
 		-machine virt \
-		-bios none \
+		-bios /usr/share/qemu/opensbi-riscv64-generic-fw_dynamic.bin \
 		-kernel $(KERNEL) \
 		-nographic
