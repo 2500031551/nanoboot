@@ -1,8 +1,11 @@
 #include <stdint.h>
+#include "process.h"
 
 #define SYS_GETPID 1
 #define SYS_WRITE  2
 #define SYS_EXIT   3
+#define SYS_FORK   4
+#define SYS_WAIT   5
 
 volatile uint8_t *uart = (uint8_t *)0x10000000UL;
 
@@ -64,9 +67,56 @@ uint64_t syscall_handler(uint64_t syscall_number)
     /* System call 3: exit() */
     if (syscall_number == SYS_EXIT) {
         print_string("exit() called\n");
+
+        /*
+         * For the current teaching version,
+         * PID 2 is the child created by fork().
+         */
+        process_exit(2);
+
         print_string("Process finished!\n");
 
         return 0;
+    }
+
+    /* System call 4: fork() */
+    if (syscall_number == SYS_FORK) {
+        print_string("fork() called\n");
+
+        int child_pid = process_fork();
+
+        if (child_pid < 0) {
+            print_string("fork() failed!\n");
+            return (uint64_t)-1;
+        }
+
+        print_string("Parent PID = ");
+        print_number(1);
+        print_string("\n");
+
+        print_string("Child PID = ");
+        print_number((uint64_t)child_pid);
+        print_string("\n");
+
+        return (uint64_t)child_pid;
+    }
+
+    /* System call 5: wait() */
+    if (syscall_number == SYS_WAIT) {
+        print_string("wait() called\n");
+
+        int child_pid = process_wait(1);
+
+        if (child_pid < 0) {
+            print_string("No exited child found!\n");
+            return (uint64_t)-1;
+        }
+
+        print_string("Wait returned child PID = ");
+        print_number((uint64_t)child_pid);
+        print_string("\n");
+
+        return (uint64_t)child_pid;
     }
 
     /* Unknown system call */
@@ -74,3 +124,4 @@ uint64_t syscall_handler(uint64_t syscall_number)
 
     return 0;
 }
+

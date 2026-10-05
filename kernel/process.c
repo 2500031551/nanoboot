@@ -6,13 +6,101 @@ void process_init(void)
 {
     for (int i = 0; i < MAX_PROCESSES; i++) {
         process_table[i].pid = 0;
+        process_table[i].parent_pid = 0;
         process_table[i].state = UNUSED;
     }
 
     /*
      * Create the first process.
      * PID 1 is the initial NanoBoot process.
+     * It has no parent.
      */
     process_table[0].pid = 1;
+    process_table[0].parent_pid = 0;
     process_table[0].state = RUNNING;
+}
+
+int process_fork(void)
+{
+    /*
+     * Find an unused process slot.
+     */
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+
+        if (process_table[i].state == UNUSED) {
+
+            /*
+             * Create a new child process.
+             */
+            process_table[i].pid = i + 1;
+
+            /*
+             * PID 1 is the parent.
+             */
+            process_table[i].parent_pid = 1;
+
+            process_table[i].state = READY;
+
+            /*
+             * Return the child's PID.
+             */
+            return process_table[i].pid;
+        }
+    }
+
+    /*
+     * No free process slot.
+     */
+    return -1;
+}
+
+void process_exit(int pid)
+{
+    /*
+     * Find the process with this PID.
+     */
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+
+        if (process_table[i].pid == pid) {
+
+            /*
+             * Mark the process as exited.
+             */
+            process_table[i].state = EXITED;
+
+            return;
+        }
+    }
+}
+
+int process_wait(int parent_pid)
+{
+    /*
+     * Look for a child belonging to the parent.
+     */
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+
+        if (process_table[i].parent_pid == parent_pid &&
+            process_table[i].state == EXITED) {
+
+            /*
+             * Return the child's PID.
+             */
+            int child_pid = process_table[i].pid;
+
+            /*
+             * Reclaim the process slot.
+             */
+            process_table[i].pid = 0;
+            process_table[i].parent_pid = 0;
+            process_table[i].state = UNUSED;
+
+            return child_pid;
+        }
+    }
+
+    /*
+     * No exited child found.
+     */
+    return -1;
 }
