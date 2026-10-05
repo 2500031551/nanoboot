@@ -16,7 +16,8 @@ OBJS = \
 	kernel/trap_asm.o \
 	kernel/syscall.o \
 	kernel/user.o \
-	kernel/process.o
+	kernel/process.o\
+	kernel/vm.o
 
 all: $(KERNEL)
 
@@ -39,6 +40,8 @@ kernel/user.o: kernel/user.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 kernel/process.o: kernel/process.c
+	$(CC) $(CFLAGS) -I kernel -c $< -o $@
+kernel/vm.o: kernel/vm.c
 	$(CC) $(CFLAGS) -I kernel -c $< -o $@
 
 $(KERNEL): $(OBJS) linker.ld
