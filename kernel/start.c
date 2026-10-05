@@ -5,6 +5,8 @@
 extern void trap_init(void);
 extern void user_program(void);
 extern void process_init(void);
+extern void scheduler_init(void);
+extern int scheduler_next(void);
 
 static volatile uint8_t *uart = (uint8_t *)UART0;
 
@@ -25,6 +27,28 @@ void kmain(void)
 
     for (int i = 0; msg_process[i] != '\0'; i++) {
         *uart = msg_process[i];
+    }
+
+    /*
+     * Initialize the round-robin scheduler.
+     */
+    scheduler_init();
+
+    /*
+     * Test the scheduler.
+     *
+     * At this point PID 1 is RUNNING,
+     * so there should be no READY process yet.
+     */
+    int next_pid = scheduler_next();
+
+    if (next_pid == -1) {
+        const char *msg_scheduler =
+            "Scheduler: no READY process\n";
+
+        for (int i = 0; msg_scheduler[i] != '\0'; i++) {
+            *uart = msg_scheduler[i];
+        }
     }
 
     trap_init();
@@ -69,4 +93,3 @@ void kmain(void)
     while (1) {
     }
 }
-

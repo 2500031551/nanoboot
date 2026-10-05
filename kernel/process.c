@@ -2,6 +2,11 @@
 
 process_t process_table[MAX_PROCESSES];
 
+/*
+ * Keeps track of where the scheduler should start searching.
+ */
+static int scheduler_index = 0;
+
 void process_init(void)
 {
     for (int i = 0; i < MAX_PROCESSES; i++) {
@@ -101,6 +106,49 @@ int process_wait(int parent_pid)
 
     /*
      * No exited child found.
+     */
+    return -1;
+}
+
+/*
+ * Initialize the round-robin scheduler.
+ */
+void scheduler_init(void)
+{
+    scheduler_index = 0;
+}
+
+/*
+ * Select the next READY process.
+ *
+ * Returns:
+ *   PID of the selected process
+ *   -1 if no READY process exists
+ */
+int scheduler_next(void)
+{
+    for (int count = 0; count < MAX_PROCESSES; count++) {
+
+        int index = (scheduler_index + count) % MAX_PROCESSES;
+
+        if (process_table[index].state == READY) {
+
+            /*
+             * Move the scheduler position forward.
+             */
+            scheduler_index = (index + 1) % MAX_PROCESSES;
+
+            /*
+             * Mark this process as running.
+             */
+            process_table[index].state = RUNNING;
+
+            return process_table[index].pid;
+        }
+    }
+
+    /*
+     * No READY process found.
      */
     return -1;
 }

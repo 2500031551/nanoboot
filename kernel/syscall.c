@@ -68,10 +68,6 @@ uint64_t syscall_handler(uint64_t syscall_number)
     if (syscall_number == SYS_EXIT) {
         print_string("exit() called\n");
 
-        /*
-         * For the current teaching version,
-         * PID 2 is the child created by fork().
-         */
         process_exit(2);
 
         print_string("Process finished!\n");
@@ -97,6 +93,24 @@ uint64_t syscall_handler(uint64_t syscall_number)
         print_string("Child PID = ");
         print_number((uint64_t)child_pid);
         print_string("\n");
+
+        /*
+         * Test the round-robin scheduler.
+         *
+         * fork() created a READY child.
+         * The scheduler should now select it.
+         */
+        extern int scheduler_next(void);
+
+        int next_pid = scheduler_next();
+
+        if (next_pid > 0) {
+            print_string("Scheduler selected PID = ");
+            print_number((uint64_t)next_pid);
+            print_string("\n");
+        } else {
+            print_string("Scheduler: no READY process\n");
+        }
 
         return (uint64_t)child_pid;
     }
@@ -124,4 +138,3 @@ uint64_t syscall_handler(uint64_t syscall_number)
 
     return 0;
 }
-

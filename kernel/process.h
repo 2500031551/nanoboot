@@ -18,9 +18,14 @@ typedef struct {
 
 extern process_t process_table[MAX_PROCESSES];
 
+/* Process management */
 void process_init(void);
 int process_fork(void);
 void process_exit(int pid);
 int process_wait(int parent_pid);
+
+/* Scheduler */
+void scheduler_init(void);
+int scheduler_next(void);
 
 #endif
