@@ -7,9 +7,13 @@
 #define SYS_FORK   4
 #define SYS_WAIT   5
 
-volatile uint8_t *uart = (uint8_t *)0x10000000UL;
+volatile uint8_t *uart =
+    (uint8_t *)0x10000000UL;
 
-/* Print a string through the UART */
+
+/*
+ * Print a string to the UART.
+ */
 void print_string(const char *msg)
 {
     for (int i = 0; msg[i] != '\0'; i++) {
@@ -17,7 +21,10 @@ void print_string(const char *msg)
     }
 }
 
-/* Print an unsigned integer through the UART */
+
+/*
+ * Print an unsigned number to the UART.
+ */
 void print_number(uint64_t number)
 {
     if (number == 0) {
@@ -29,7 +36,9 @@ void print_number(uint64_t number)
     int i = 0;
 
     while (number > 0) {
-        digits[i++] = '0' + (number % 10);
+        digits[i++] =
+            '0' + (number % 10);
+
         number /= 10;
     }
 
@@ -38,103 +47,182 @@ void print_number(uint64_t number)
     }
 }
 
-/* System call dispatcher */
+
+/*
+ * System call handler.
+ */
 uint64_t syscall_handler(uint64_t syscall_number)
 {
-    /* System call 1: getpid() */
+    /*
+     * -------------------------
+     * GETPID
+     * -------------------------
+     */
     if (syscall_number == SYS_GETPID) {
-        print_string("getpid() called\n");
+
+        print_string(
+            "getpid() called\n"
+        );
 
         uint64_t pid = 1;
 
         print_string("PID = ");
+
         print_number(pid);
+
         print_string("\n");
 
         return pid;
     }
 
-    /* System call 2: write() */
-    if (syscall_number == SYS_WRITE) {
-        print_string("write() called\n");
 
-        const char *msg = "Hello from user program!\n";
+    /*
+     * -------------------------
+     * WRITE
+     * -------------------------
+     */
+    if (syscall_number == SYS_WRITE) {
+
+        print_string(
+            "write() called\n"
+        );
+
+        const char *msg =
+            "Hello from user program!\n";
+
         print_string(msg);
 
         return 1;
     }
 
-    /* System call 3: exit() */
+
+    /*
+     * -------------------------
+     * EXIT
+     * -------------------------
+     */
     if (syscall_number == SYS_EXIT) {
-        print_string("exit() called\n");
+
+        print_string(
+            "exit() called\n"
+        );
 
         process_exit(2);
 
-        print_string("Process finished!\n");
+        print_string(
+            "Process finished!\n"
+        );
 
         return 0;
     }
 
-    /* System call 4: fork() */
-    if (syscall_number == SYS_FORK) {
-        print_string("fork() called\n");
 
-        int child_pid = process_fork();
+    /*
+     * -------------------------
+     * FORK
+     * -------------------------
+     */
+    if (syscall_number == SYS_FORK) {
+
+        print_string(
+            "fork() called\n"
+        );
+
+        int child_pid =
+            process_fork();
 
         if (child_pid < 0) {
-            print_string("fork() failed!\n");
+
+            print_string(
+                "fork() failed!\n"
+            );
+
             return (uint64_t)-1;
         }
 
-        print_string("Parent PID = ");
+        print_string(
+            "Parent PID = "
+        );
+
         print_number(1);
+
         print_string("\n");
 
-        print_string("Child PID = ");
-        print_number((uint64_t)child_pid);
+
+        print_string(
+            "Child PID = "
+        );
+
+        print_number(
+            (uint64_t)child_pid
+        );
+
         print_string("\n");
+
 
         /*
-         * Test the round-robin scheduler.
+         * Stage 7:
          *
-         * fork() created a READY child.
-         * The scheduler should now select it.
+         * The child process and its
+         * CPU context have been created.
+         *
+         * We are NOT performing the
+         * actual context switch yet.
          */
-        extern int scheduler_next(void);
-
-        int next_pid = scheduler_next();
-
-        if (next_pid > 0) {
-            print_string("Scheduler selected PID = ");
-            print_number((uint64_t)next_pid);
-            print_string("\n");
-        } else {
-            print_string("Scheduler: no READY process\n");
-        }
+        print_string(
+            "Context switch test ready\n"
+        );
 
         return (uint64_t)child_pid;
     }
 
-    /* System call 5: wait() */
-    if (syscall_number == SYS_WAIT) {
-        print_string("wait() called\n");
 
-        int child_pid = process_wait(1);
+    /*
+     * -------------------------
+     * WAIT
+     * -------------------------
+     */
+    if (syscall_number == SYS_WAIT) {
+
+        print_string(
+            "wait() called\n"
+        );
+
+        int child_pid =
+            process_wait(1);
 
         if (child_pid < 0) {
-            print_string("No exited child found!\n");
+
+            print_string(
+                "No exited child found!\n"
+            );
+
             return (uint64_t)-1;
         }
 
-        print_string("Wait returned child PID = ");
-        print_number((uint64_t)child_pid);
+        print_string(
+            "Wait returned child PID = "
+        );
+
+        print_number(
+            (uint64_t)child_pid
+        );
+
         print_string("\n");
 
         return (uint64_t)child_pid;
     }
 
-    /* Unknown system call */
-    print_string("Unknown system call!\n");
+
+    /*
+     * -------------------------
+     * UNKNOWN SYSTEM CALL
+     * -------------------------
+     */
+    print_string(
+        "Unknown system call!\n"
+    );
 
     return 0;
 }
+

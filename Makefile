@@ -17,8 +17,9 @@ OBJS = \
 	kernel/syscall.o \
 	kernel/user.o \
 	kernel/process.o\
-	kernel/vm.o
-
+	kernel/vm.o\
+	kernel/switch.o\
+	kernel/process_start.o
 all: $(KERNEL)
 
 kernel/entry.o: kernel/entry.S
@@ -43,7 +44,10 @@ kernel/process.o: kernel/process.c
 	$(CC) $(CFLAGS) -I kernel -c $< -o $@
 kernel/vm.o: kernel/vm.c
 	$(CC) $(CFLAGS) -I kernel -c $< -o $@
-
+kernel/switch.o: kernel/switch.S
+	$(CC) $(CFLAGS) -c $< -o $@
+kernel/process_start.o: kernel/process_start.c
+	$(CC) $(CFLAGS) -c $< -o $@
 $(KERNEL): $(OBJS) linker.ld
 	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS) -o $@
 
