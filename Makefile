@@ -19,7 +19,8 @@ OBJS = \
 	kernel/process.o\
 	kernel/vm.o\
 	kernel/switch.o\
-	kernel/process_start.o
+	kernel/process_start.o\
+	kernel/shell.o
 all: $(KERNEL)
 
 kernel/entry.o: kernel/entry.S
