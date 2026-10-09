@@ -7,9 +7,15 @@ SECTIONS
 
     .text : {
         *(.text.entry)
-        *(.text .text.*)
+        *(.text)
+        *(.text.*)
     }
 
+    . = ALIGN(4096);
+
+    .usertext : {
+        *(.usertext)
+    }
     .rodata : {
         *(.rodata .rodata.*)
     }
