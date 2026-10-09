@@ -8,9 +8,9 @@ typedef enum {
     UNUSED,
     READY,
     RUNNING,
+    SLEEPING,
     EXITED
 } process_state_t;
-
 
 /*
  * Kernel CPU registers saved during a context switch.
@@ -88,24 +88,18 @@ typedef struct {
     int pid;
     int parent_pid;
     process_state_t state;
+    unsigned long wake_tick;
 
-    /*
-     * Kernel scheduler context.
-     */
     context_t context;
-
-    /*
-     * User process trap state.
-     */
     trapframe_t trapframe;
-
 } process_t;
-
 
 extern process_t process_table[MAX_PROCESSES];
 
 
+
 /* Process management */
+void test_context_switch(void);
 void process_init(void);
 int process_fork(void);
 void process_exit(int pid);
