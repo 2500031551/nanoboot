@@ -27,5 +27,6 @@ trap_entry:
 .section .bss
 .align 3
 
+.globl saved_sepc
 saved_sepc:
     .space 8

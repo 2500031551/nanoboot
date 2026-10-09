@@ -1,6 +1,12 @@
 #include <stdint.h>
 #include "process.h"
 
+extern int scheduler_next(void);
+extern void test_context_switch(void);
+extern void context_switch(
+    context_t *old,
+    context_t *new
+);
 #define SYS_GETPID 1
 #define SYS_WRITE  2
 #define SYS_EXIT   3
@@ -11,9 +17,6 @@ volatile uint8_t *uart =
     (uint8_t *)0x10000000UL;
 
 
-/*
- * Print a string to the UART.
- */
 void print_string(const char *msg)
 {
     for (int i = 0; msg[i] != '\0'; i++) {
@@ -22,9 +25,6 @@ void print_string(const char *msg)
 }
 
 
-/*
- * Print an unsigned number to the UART.
- */
 void print_number(uint64_t number)
 {
     if (number == 0) {
@@ -36,6 +36,7 @@ void print_number(uint64_t number)
     int i = 0;
 
     while (number > 0) {
+
         digits[i++] =
             '0' + (number % 10);
 
@@ -48,9 +49,6 @@ void print_number(uint64_t number)
 }
 
 
-/*
- * System call handler.
- */
 uint64_t syscall_handler(uint64_t syscall_number)
 {
     /*
@@ -64,7 +62,14 @@ uint64_t syscall_handler(uint64_t syscall_number)
             "getpid() called\n"
         );
 
-        uint64_t pid = 1;
+	uint64_t pid = 1;
+
+for (int i = 0; i < MAX_PROCESSES; i++) {
+    if (process_table[i].state == RUNNING) {
+        pid = process_table[i].pid;
+        break;
+    }
+}
 
         print_string("PID = ");
 
@@ -101,24 +106,81 @@ uint64_t syscall_handler(uint64_t syscall_number)
      * EXIT
      * -------------------------
      */
-    if (syscall_number == SYS_EXIT) {
 
-        print_string(
-            "exit() called\n"
-        );
 
-        process_exit(2);
+if (syscall_number == SYS_EXIT) {
 
-        print_string(
-            "Process finished!\n"
-        );
-
-        return 0;
-    }
-
+    print_string(
+        "exit() called\n"
+    );
 
     /*
-     * -------------------------
+     * The current process is the child.
+     * Mark PID 2 as exited.
+     */
+    process_exit(2);
+
+    print_string(
+        "Process finished!\n"
+    );
+
+    /*
+     * Child -> Parent context switch.
+     *
+     * The parent context was saved when
+     * test_context_switch() switched to the child.
+     */
+    context_t *child_context = 0;
+    context_t *parent_context = 0;
+
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+
+        if (process_table[i].pid == 2) {
+            child_context =
+                &process_table[i].context;
+        }
+
+        if (process_table[i].pid == 1) {
+            parent_context =
+                &process_table[i].context;
+        }
+    }
+
+    if (child_context != 0 &&
+        parent_context != 0) {
+
+        print_string(
+            "Switching from child to parent...\n"
+        );
+
+        /*
+         * Tell trap return code to use
+         * the parent's saved PC.
+         */
+        extern uint64_t saved_sepc;
+
+        saved_sepc =
+            process_table[0].trapframe.sepc;
+
+        /*
+         * Parent becomes RUNNING again.
+         */
+        process_table[0].state =
+            RUNNING;
+
+        /*
+         * Resume the parent kernel context.
+         */
+        context_switch(
+            child_context,
+            parent_context
+        );
+    }
+
+    return 0;
+}
+
+     /* -------------------------
      * FORK
      * -------------------------
      */
@@ -172,6 +234,26 @@ uint64_t syscall_handler(uint64_t syscall_number)
         print_string(
             "Context switch test ready\n"
         );
+	test_context_switch();
+
+        /*
+         * Ask the scheduler which
+         * READY process should run next.
+         */
+        int next_pid =
+            scheduler_next();
+
+
+        print_string(
+            "Scheduler selected PID = "
+        );
+
+        print_number(
+            (uint64_t)next_pid
+        );
+
+        print_string("\n");
+
 
         return (uint64_t)child_pid;
     }
@@ -225,4 +307,3 @@ uint64_t syscall_handler(uint64_t syscall_number)
 
     return 0;
 }
-

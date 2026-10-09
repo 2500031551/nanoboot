@@ -1,22 +1,18 @@
 #include <stdint.h>
 
-extern void user_program(void);
+extern void child_program(void);
 
 void process_start(void)
 {
     /*
-     * Start the user program.
+     * Start the child process in user mode.
      */
     asm volatile(
         "csrw sepc, %0"
         :
-        : "r"(user_program)
+        : "r"(child_program)
     );
 
-    /*
-     * Switch from Supervisor mode
-     * to User mode when sret executes.
-     */
     uint64_t sstatus;
 
     asm volatile(
@@ -25,8 +21,9 @@ void process_start(void)
     );
 
     /*
-     * Clear SPP (bit 8).
-     * SPP = 0 means User mode.
+     * Clear SPP.
+     *
+     * SPP = 0 means sret returns to User mode.
      */
     sstatus &= ~(1UL << 8);
 
@@ -38,9 +35,6 @@ void process_start(void)
 
     asm volatile("sret");
 
-    /*
-     * Should never reach here.
-     */
     while (1) {
     }
 }
