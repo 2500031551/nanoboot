@@ -1,7 +1,8 @@
 #include <stdint.h>
 
 #define UART0 0x10000000UL
-
+extern void timer_test(void);
+extern void timer_delay_ms(uint64_t milliseconds);
 /* Trap system */
 extern void trap_init(void);
 
@@ -112,7 +113,19 @@ void kmain(void)
      * Initialize trap handling.
      */
     trap_init();
+timer_test();
 
+const char *before_delay = "Delay test starting...\n";
+for (int i = 0; before_delay[i] != '\0'; i++) {
+    *uart = before_delay[i];
+}
+
+timer_delay_ms(1000);
+
+const char *after_delay = "Delay test finished!\n";
+for (int i = 0; after_delay[i] != '\0'; i++) {
+    *uart = after_delay[i];
+}
     const char *msg2 =
         "Entering User mode...\n";
 

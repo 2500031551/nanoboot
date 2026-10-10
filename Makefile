@@ -20,7 +20,8 @@ OBJS = \
 	kernel/vm.o\
 	kernel/switch.o\
 	kernel/process_start.o\
-	kernel/shell.o
+	kernel/shell.o\
+	kernel/timer.o 
 all: $(KERNEL)
 
 kernel/entry.o: kernel/entry.S
@@ -46,6 +47,8 @@ kernel/process.o: kernel/process.c
 kernel/vm.o: kernel/vm.c
 	$(CC) $(CFLAGS) -I kernel -c $< -o $@
 kernel/switch.o: kernel/switch.S
+	$(CC) $(CFLAGS) -c $< -o $@
+kernel/timer.o: kernel/timer.c
 	$(CC) $(CFLAGS) -c $< -o $@
 kernel/process_start.o: kernel/process_start.c
 	$(CC) $(CFLAGS) -c $< -o $@
