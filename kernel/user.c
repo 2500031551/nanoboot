@@ -6,15 +6,35 @@
 __attribute__((section(".usertext"), aligned(4096), noinline))
 void user_program(void)
 {
-    /* System call 4: fork() */
+    /* Fill all three child slots; the fourth fork must fail cleanly. */
     asm volatile(
+        "li a7, 4\n"
+        "ecall\n"
+        "li a7, 4\n"
+        "ecall\n"
+        "li a7, 4\n"
+        "ecall\n"
         "li a7, 4\n"
         "ecall\n"
     );
 
-    /* System call 5: wait() */
+    /* Reap all children so their process-table slots and stacks are freed. */
     asm volatile(
         "li a7, 5\n"
+        "ecall\n"
+        "li a7, 5\n"
+        "ecall\n"
+        "li a7, 5\n"
+        "ecall\n"
+    );
+
+    /* Reuse a released slot, then enter the shell. */
+    asm volatile(
+        "li a7, 4\n"
+        "ecall\n"
+        "li a7, 5\n"
+        "ecall\n"
+        "li a7, 6\n"
         "ecall\n"
     );
 
@@ -24,7 +44,7 @@ void user_program(void)
 
 /*
  * Child process user program.
- * PID 2 starts here.
+ * Each newly created child starts here.
  */
 __attribute__((section(".usertext"), aligned(4096), noinline))
 void child_program(void)

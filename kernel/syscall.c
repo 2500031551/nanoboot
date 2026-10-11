@@ -12,6 +12,7 @@ extern void shell_run(void);
 #define SYS_EXIT   3
 #define SYS_FORK   4
 #define SYS_WAIT   5
+#define SYS_SHELL  6
 
 volatile uint8_t *uart = (uint8_t *)0x10000000UL;
 
@@ -48,14 +49,8 @@ uint64_t syscall_handler(uint64_t syscall_number)
     if (syscall_number == SYS_GETPID) {
         print_string("getpid() called\n");
 
-        uint64_t pid = 1;
-
-        for (int i = 0; i < MAX_PROCESSES; i++) {
-            if (process_table[i].state == RUNNING) {
-                pid = process_table[i].pid;
-                break;
-            }
-        }
+        int current_pid = process_current_pid();
+        uint64_t pid = current_pid < 0 ? 0 : (uint64_t)current_pid;
 
         print_string("PID = ");
         print_number(pid);
@@ -74,17 +69,29 @@ uint64_t syscall_handler(uint64_t syscall_number)
     /* EXIT */
     if (syscall_number == SYS_EXIT) {
         print_string("exit() called\n");
-	process_exit(2);
+
+        int current_pid = process_current_pid();
+        int parent_pid = current_pid < 0
+            ? -1
+            : process_parent_pid(current_pid);
+
+        if (current_pid < 0) {
+            print_string("exit() failed: no running process\n");
+            return (uint64_t)-1;
+        }
+
+        process_exit(current_pid);
 
         context_t *child_context = 0;
         context_t *parent_context = 0;
 
         for (int i = 0; i < MAX_PROCESSES; i++) {
-            if (process_table[i].pid == 2) {
+            if (process_table[i].pid == current_pid) {
                 child_context = &process_table[i].context;
             }
 
-            if (process_table[i].pid == 1) {
+            if (process_table[i].pid == parent_pid &&
+                process_table[i].state != UNUSED) {
                 parent_context = &process_table[i].context;
             }
         }
@@ -92,10 +99,15 @@ uint64_t syscall_handler(uint64_t syscall_number)
         if (child_context != 0 && parent_context != 0) {
             print_string("Switching from child to parent...\n");
 
-            extern uint64_t saved_sepc;
-
-            saved_sepc = process_table[0].trapframe.sepc;
-            process_table[0].state = RUNNING;
+            for (int i = 0; i < MAX_PROCESSES; i++) {
+                if (process_table[i].pid == parent_pid &&
+                    process_table[i].state != UNUSED) {
+                    extern uint64_t saved_sepc;
+                    saved_sepc = process_table[i].trapframe.sepc;
+                    process_table[i].state = RUNNING;
+                    break;
+                }
+            }
 
             context_switch(child_context, parent_context);
         }
@@ -115,7 +127,8 @@ uint64_t syscall_handler(uint64_t syscall_number)
         }
 
         print_string("Parent PID = ");
-        print_number(1);
+        int parent_pid = process_current_pid();
+        print_number(parent_pid < 0 ? 0 : (uint64_t)parent_pid);
         print_string("\n");
 
         print_string("Child PID = ");
@@ -139,7 +152,10 @@ uint64_t syscall_handler(uint64_t syscall_number)
     if (syscall_number == SYS_WAIT) {
         print_string("wait() called\n");
 
-        int child_pid = process_wait(1);
+        int parent_pid = process_current_pid();
+        int child_pid = parent_pid < 0
+            ? -1
+            : process_wait(parent_pid);
 
         if (child_pid < 0) {
             print_string("No exited child found!\n");
@@ -150,11 +166,14 @@ uint64_t syscall_handler(uint64_t syscall_number)
         print_number((uint64_t)child_pid);
         print_string("\n");
 
+        return (uint64_t)child_pid;
+    }
+
+    /* SHELL: enter the kernel shell after the user test completes. */
+    if (syscall_number == SYS_SHELL) {
         print_string("Starting NanoBoot shell...\n");
         shell_run();
-
-        /* Normally unreachable: shell_run() loops forever. */
-        return (uint64_t)child_pid;
+        return 0;
     }
 
     /* UNKNOWN SYSTEM CALL */

@@ -10,6 +10,16 @@ extern void context_switch(context_t *old_context,
 /* Process table */
 process_t process_table[MAX_PROCESSES];
 
+/* Clear freestanding kernel data without relying on libc's memset. */
+static void clear_words(volatile unsigned long *words,
+                        unsigned long word_count)
+{
+    for (unsigned long i = 0; i < word_count; i++)
+    {
+        words[i] = 0;
+    }
+}
+
 /* Initialize all processes */
 void process_init(void)
 {
@@ -47,6 +57,35 @@ void process_init(void)
     process_table[0].wake_tick = 0;
 }
 
+/* Return the PID of the process currently marked RUNNING. */
+int process_current_pid(void)
+{
+    for (int i = 0; i < MAX_PROCESSES; i++)
+    {
+        if (process_table[i].state == RUNNING)
+        {
+            return process_table[i].pid;
+        }
+    }
+
+    return -1;
+}
+
+/* Return a process's recorded parent PID, or -1 if it is unknown. */
+int process_parent_pid(int pid)
+{
+    for (int i = 0; i < MAX_PROCESSES; i++)
+    {
+        if (process_table[i].pid == pid &&
+            process_table[i].state != UNUSED)
+        {
+            return process_table[i].parent_pid;
+        }
+    }
+
+    return -1;
+}
+
 /* Create a child process */
 int process_fork(void)
 {
@@ -54,8 +93,14 @@ int process_fork(void)
     {
         if (process_table[i].state == UNUSED)
         {
+            int parent_pid = process_current_pid();
+            if (parent_pid < 0)
+            {
+                return -1;
+            }
+
             process_table[i].pid = i + 1;
-            process_table[i].parent_pid = 1;
+            process_table[i].parent_pid = parent_pid;
             process_table[i].state = READY;
             process_table[i].wake_tick = 0;
 
@@ -64,8 +109,8 @@ int process_fork(void)
                 (unsigned long)process_start;
 
             process_table[i].context.sp =
-                0x80300000UL +
-                ((unsigned long)(i + 1) * 4096UL);
+                (unsigned long)(process_table[i].kernel_stack +
+                                sizeof(process_table[i].kernel_stack));
 
             process_table[i].context.s0 = 0;
             process_table[i].context.s1 = 0;
@@ -160,11 +205,18 @@ int process_wait(int parent_pid)
             process_table[i].state = UNUSED;
             process_table[i].wake_tick = 0;
 
-            process_table[i].context.ra = 0;
-            process_table[i].context.sp = 0;
+            clear_words((volatile unsigned long *)&process_table[i].context,
+                        sizeof(context_t) / sizeof(unsigned long));
+            clear_words((volatile unsigned long *)&process_table[i].trapframe,
+                        sizeof(trapframe_t) / sizeof(unsigned long));
 
-            process_table[i].trapframe.sepc = 0;
-            process_table[i].trapframe.sstatus = 0;
+            volatile unsigned char *stack = process_table[i].kernel_stack;
+            for (unsigned long stack_byte = 0;
+                 stack_byte < sizeof(process_table[i].kernel_stack);
+                 stack_byte++)
+            {
+                stack[stack_byte] = 0;
+            }
 
             return child_pid;
         }

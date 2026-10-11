@@ -3,6 +3,7 @@
 #define PROCESS_H
 
 #define MAX_PROCESSES 4
+#define KERNEL_STACK_SIZE 4096
 
 typedef enum {
     UNUSED,
@@ -92,6 +93,10 @@ typedef struct {
 
     context_t context;
     trapframe_t trapframe;
+
+    /* Private supervisor stack used by this process's kernel context. */
+    unsigned char kernel_stack[KERNEL_STACK_SIZE]
+        __attribute__((aligned(16)));
 } process_t;
 
 extern process_t process_table[MAX_PROCESSES];
@@ -104,6 +109,8 @@ void process_init(void);
 int process_fork(void);
 void process_exit(int pid);
 int process_wait(int parent_pid);
+int process_current_pid(void);
+int process_parent_pid(int pid);
 
 
 /* Scheduler */
