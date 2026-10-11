@@ -35,50 +35,13 @@ typedef struct {
 } context_t;
 
 
-/*
- * User CPU state saved when a trap occurs.
- */
+/* Must match the 288-byte frame layout in trap.S. */
 typedef struct {
-    unsigned long ra;
-    unsigned long sp;
-
-    unsigned long gp;
-    unsigned long tp;
-
-    unsigned long t0;
-    unsigned long t1;
-    unsigned long t2;
-
-    unsigned long s0;
-    unsigned long s1;
-
-    unsigned long a0;
-    unsigned long a1;
-    unsigned long a2;
-    unsigned long a3;
-    unsigned long a4;
-    unsigned long a5;
-    unsigned long a6;
-    unsigned long a7;
-
-    unsigned long s2;
-    unsigned long s3;
-    unsigned long s4;
-    unsigned long s5;
-    unsigned long s6;
-    unsigned long s7;
-    unsigned long s8;
-    unsigned long s9;
-    unsigned long s10;
-    unsigned long s11;
-
-    unsigned long t3;
-    unsigned long t4;
-    unsigned long t5;
-    unsigned long t6;
-
+    unsigned long x[32];
     unsigned long sepc;
     unsigned long sstatus;
+    unsigned long scause;
+    unsigned long padding;
 } trapframe_t;
 
 
@@ -97,6 +60,10 @@ typedef struct {
     /* Private supervisor stack used by this process's kernel context. */
     unsigned char kernel_stack[KERNEL_STACK_SIZE]
         __attribute__((aligned(16)));
+
+    /* Private user stack; its page is mapped U=1 only for this process. */
+    unsigned char user_stack[4096]
+        __attribute__((aligned(4096)));
 } process_t;
 
 extern process_t process_table[MAX_PROCESSES];
@@ -111,6 +78,8 @@ void process_exit(int pid);
 int process_wait(int parent_pid);
 int process_current_pid(void);
 int process_parent_pid(int pid);
+int process_sleep(int pid, unsigned long ticks);
+int process_wakeup(unsigned long ticks);
 
 
 /* Scheduler */

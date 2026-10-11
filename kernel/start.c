@@ -1,8 +1,10 @@
 #include <stdint.h>
+#include "process.h"
 
 #define UART0 0x10000000UL
 extern void timer_test(void);
 extern void timer_delay_ms(uint64_t milliseconds);
+extern void timer_init(void);
 /* Trap system */
 extern void trap_init(void);
 
@@ -113,6 +115,7 @@ void kmain(void)
      * Initialize trap handling.
      */
     trap_init();
+    timer_init();
 timer_test();
 
 const char *before_delay = "Delay test starting...\n";
@@ -155,13 +158,21 @@ for (int i = 0; after_delay[i] != '\0'; i++) {
         : "=r"(sstatus)
     );
 
-    sstatus &= ~(1UL << 8);
+    sstatus &= ~(1UL << 8); /* SPP=0: return to user mode. */
+    sstatus |= (1UL << 5);  /* SPIE=1: enable S interrupts after sret. */
+    sstatus |= (1UL << 18); /* SUM=1: supervisor accesses user stack frames. */
 
     asm volatile(
         "csrw sstatus, %0"
         :
         : "r"(sstatus)
     );
+
+    /* Begin the initial process on its private user-mapped stack. */
+    unsigned long initial_user_sp =
+        (unsigned long)(process_table[0].user_stack +
+                        sizeof(process_table[0].user_stack));
+    asm volatile("mv sp, %0" : : "r"(initial_user_sp) : "memory");
 
     /*
      * Return from Supervisor mode.

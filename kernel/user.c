@@ -34,6 +34,9 @@ void user_program(void)
         "ecall\n"
         "li a7, 5\n"
         "ecall\n"
+        "li a0, 5\n"   /* Sleep for five 10 ms timer ticks. */
+        "li a7, 7\n"
+        "ecall\n"
         "li a7, 6\n"
         "ecall\n"
     );
@@ -49,6 +52,16 @@ void user_program(void)
 __attribute__((section(".usertext"), aligned(4096), noinline))
 void child_program(void)
 {
+    /* Burn a bounded register-only loop so timer preemption is observable.
+     * No stack/data access is used until user pages and user stacks exist.
+     */
+    asm volatile(
+        "li t0, 5000000\n"
+        "1: addi t0, t0, -1\n"
+        "bnez t0, 1b\n"
+        ::: "t0"
+    );
+
     /* System call 1: getpid() */
     asm volatile(
         "li a7, 1\n"

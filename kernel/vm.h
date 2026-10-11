@@ -49,4 +49,5 @@ void vm_init(void);
 pagetable_t *get_kernel_pagetable(void);
 void vm_kernel_map(void);
 void vm_enable(void);
+void vm_switch_process(int process_index);
 #endif

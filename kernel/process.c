@@ -6,6 +6,7 @@ extern void process_start(void);
 extern void child_program(void);
 extern void context_switch(context_t *old_context,
                            context_t *new_context);
+extern unsigned long timer_tick_count(void);
 
 /* Process table */
 process_t process_table[MAX_PROCESSES];
@@ -30,24 +31,10 @@ void process_init(void)
         process_table[i].state = UNUSED;
         process_table[i].wake_tick = 0;
 
-        process_table[i].context.ra = 0;
-        process_table[i].context.sp = 0;
-
-        process_table[i].context.s0 = 0;
-        process_table[i].context.s1 = 0;
-        process_table[i].context.s2 = 0;
-        process_table[i].context.s3 = 0;
-        process_table[i].context.s4 = 0;
-        process_table[i].context.s5 = 0;
-        process_table[i].context.s6 = 0;
-        process_table[i].context.s7 = 0;
-        process_table[i].context.s8 = 0;
-        process_table[i].context.s9 = 0;
-        process_table[i].context.s10 = 0;
-        process_table[i].context.s11 = 0;
-
-        process_table[i].trapframe.sepc = 0;
-        process_table[i].trapframe.sstatus = 0;
+        clear_words((volatile unsigned long *)&process_table[i].context,
+                    sizeof(context_t) / sizeof(unsigned long));
+        clear_words((volatile unsigned long *)&process_table[i].trapframe,
+                    sizeof(trapframe_t) / sizeof(unsigned long));
     }
 
     /* Create the initial process */
@@ -126,46 +113,13 @@ int process_fork(void)
             process_table[i].context.s11 = 0;
 
             /* Initialize the child's trap frame */
-            process_table[i].trapframe.sepc =
-                (unsigned long)child_program;
-
-            process_table[i].trapframe.sstatus = 0;
-
-            process_table[i].trapframe.ra = 0;
-            process_table[i].trapframe.sp =
-                process_table[i].context.sp;
-            process_table[i].trapframe.gp = 0;
-            process_table[i].trapframe.tp = 0;
-
-            process_table[i].trapframe.t0 = 0;
-            process_table[i].trapframe.t1 = 0;
-            process_table[i].trapframe.t2 = 0;
-            process_table[i].trapframe.t3 = 0;
-            process_table[i].trapframe.t4 = 0;
-            process_table[i].trapframe.t5 = 0;
-            process_table[i].trapframe.t6 = 0;
-
-            process_table[i].trapframe.s0 = 0;
-            process_table[i].trapframe.s1 = 0;
-            process_table[i].trapframe.s2 = 0;
-            process_table[i].trapframe.s3 = 0;
-            process_table[i].trapframe.s4 = 0;
-            process_table[i].trapframe.s5 = 0;
-            process_table[i].trapframe.s6 = 0;
-            process_table[i].trapframe.s7 = 0;
-            process_table[i].trapframe.s8 = 0;
-            process_table[i].trapframe.s9 = 0;
-            process_table[i].trapframe.s10 = 0;
-            process_table[i].trapframe.s11 = 0;
-
-            process_table[i].trapframe.a0 = 0;
-            process_table[i].trapframe.a1 = 0;
-            process_table[i].trapframe.a2 = 0;
-            process_table[i].trapframe.a3 = 0;
-            process_table[i].trapframe.a4 = 0;
-            process_table[i].trapframe.a5 = 0;
-            process_table[i].trapframe.a6 = 0;
-            process_table[i].trapframe.a7 = 0;
+            clear_words((volatile unsigned long *)&process_table[i].trapframe,
+                        sizeof(trapframe_t) / sizeof(unsigned long));
+            process_table[i].trapframe.sepc = (unsigned long)child_program;
+            process_table[i].trapframe.sstatus = (1UL << 5) | (1UL << 18); /* SPIE, SUM */
+            process_table[i].trapframe.x[2] =
+                (unsigned long)(process_table[i].user_stack +
+                                sizeof(process_table[i].user_stack));
 
             return process_table[i].pid;
         }
@@ -185,19 +139,67 @@ void process_exit(int pid)
         {
             process_table[i].state = EXITED;
             process_table[i].wake_tick = 0;
+
+            /* Wake a parent blocked in wait(). */
+            for (int parent = 0; parent < MAX_PROCESSES; parent++) {
+                if (process_table[parent].pid == process_table[i].parent_pid &&
+                    process_table[parent].state == SLEEPING &&
+                    process_table[parent].wake_tick == 0) {
+                    process_table[parent].state = READY;
+                }
+            }
             return;
         }
     }
 }
 
+/* Block the running process until the requested timer tick deadline. */
+int process_sleep(int pid, unsigned long ticks)
+{
+    if (ticks == 0) {
+        return 0;
+    }
+
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        if (process_table[i].pid == pid &&
+            process_table[i].state == RUNNING) {
+            process_table[i].wake_tick = timer_tick_count() + ticks;
+            process_table[i].state = SLEEPING;
+            return 1;
+        }
+    }
+    return -1;
+}
+
+/* Called from each timer interrupt to wake expired sleepers. */
+int process_wakeup(unsigned long ticks)
+{
+    int awakened = 0;
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        if (process_table[i].state == SLEEPING &&
+            process_table[i].wake_tick != 0 &&
+            process_table[i].wake_tick <= ticks) {
+            process_table[i].wake_tick = 0;
+            process_table[i].state = READY;
+            awakened++;
+        }
+    }
+    return awakened;
+}
+
 /* Wait for an exited child and release its table entry */
 int process_wait(int parent_pid)
 {
+    int has_child = 0;
     for (int i = 0; i < MAX_PROCESSES; i++)
     {
-        if (process_table[i].parent_pid == parent_pid &&
-            process_table[i].state == EXITED)
-        {
+        if (process_table[i].parent_pid != parent_pid ||
+            process_table[i].state == UNUSED) {
+            continue;
+        }
+
+        has_child = 1;
+        if (process_table[i].state == EXITED) {
             int child_pid = process_table[i].pid;
 
             process_table[i].pid = 0;
@@ -218,11 +220,29 @@ int process_wait(int parent_pid)
                 stack[stack_byte] = 0;
             }
 
+            volatile unsigned char *user_stack = process_table[i].user_stack;
+            for (unsigned long stack_byte = 0;
+                 stack_byte < sizeof(process_table[i].user_stack);
+                 stack_byte++) {
+                user_stack[stack_byte] = 0;
+            }
+
             return child_pid;
         }
     }
 
-    /* No exited child found */
+    if (has_child) {
+        int running_pid = process_current_pid();
+        for (int i = 0; i < MAX_PROCESSES; i++) {
+            if (process_table[i].pid == running_pid &&
+                process_table[i].state == RUNNING) {
+                process_table[i].state = SLEEPING;
+                return -2; /* Children exist; caller must block and retry. */
+            }
+        }
+    }
+
+    /* No children to wait for. */
     return -1;
 }
 

@@ -2,3 +2,6 @@
 *.elf
 *.bin
 *.map
+*.backup
+*.experimental
+*.before_map_fix
