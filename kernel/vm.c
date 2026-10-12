@@ -18,8 +18,10 @@ static pagetable_t uart_level1
 static pagetable_t uart_level0
     __attribute__((aligned(PAGE_SIZE)));
 
-extern void user_program(void);
-extern void child_program(void);
+extern char __usertext_start[];
+extern char __usertext_end[];
+extern char __userrodata_start[];
+extern char __userrodata_end[];
 
 pte_t make_pte(uint64_t physical_address, uint64_t flags)
 {
@@ -119,12 +121,16 @@ void vm_kernel_map(void)
         map_page(process_roots[process], 0x10000000UL, 0x10000000UL,
                  PTE_R | PTE_W);
 
-        uint64_t user_page = (uint64_t)user_program & ~(PAGE_SIZE - 1UL);
-        uint64_t child_page = (uint64_t)child_program & ~(PAGE_SIZE - 1UL);
-        map_page(process_roots[process], user_page, user_page,
-                 PTE_R | PTE_X | PTE_U);
-        map_page(process_roots[process], child_page, child_page,
-                 PTE_R | PTE_X | PTE_U);
+        for (uint64_t address = (uint64_t)__usertext_start & ~(PAGE_SIZE - 1UL);
+             address < (uint64_t)__usertext_end; address += PAGE_SIZE) {
+            map_page(process_roots[process], address, address,
+                     PTE_R | PTE_X | PTE_U);
+        }
+        for (uint64_t address = (uint64_t)__userrodata_start & ~(PAGE_SIZE - 1UL);
+             address < (uint64_t)__userrodata_end; address += PAGE_SIZE) {
+            map_page(process_roots[process], address, address,
+                     PTE_R | PTE_U);
+        }
 
         /* A process can access only its own user stack. Other stacks retain
          * supervisor-only mappings so trap frames remain reachable in S mode
@@ -153,6 +159,22 @@ void vm_switch_process(int process_index)
     __asm__ volatile("csrw satp, %0\n"
                      "sfence.vma zero, zero\n"
                      : : "r"(satp_value) : "memory");
+}
+
+int vm_user_accessible(int process_index, uint64_t virtual_address)
+{
+    if (process_index < 0 || process_index >= MAX_PROCESSES) return 0;
+    uint64_t vpn2 = (virtual_address >> 30) & 0x1ff;
+    uint64_t vpn1 = (virtual_address >> 21) & 0x1ff;
+    uint64_t vpn0 = (virtual_address >> 12) & 0x1ff;
+    pte_t root = process_roots[process_index][vpn2];
+    if (!(root & PTE_V)) return 0;
+    pagetable_t *level1 = (pagetable_t *)get_physical_address(root);
+    pte_t middle = (*level1)[vpn1];
+    if (!(middle & PTE_V)) return 0;
+    pagetable_t *level0 = (pagetable_t *)get_physical_address(middle);
+    pte_t leaf = (*level0)[vpn0];
+    return (leaf & PTE_V) && (leaf & PTE_U);
 }
 
 void vm_enable(void)

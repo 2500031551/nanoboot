@@ -21,6 +21,7 @@ OBJS = \
 	kernel/switch.o\
 	kernel/process_start.o\
 	kernel/shell.o\
+	kernel/ramfs.o\
 	kernel/timer.o 
 all: $(KERNEL)
 
@@ -50,6 +51,8 @@ kernel/switch.o: kernel/switch.S
 	$(CC) $(CFLAGS) -c $< -o $@
 kernel/timer.o: kernel/timer.c
 	$(CC) $(CFLAGS) -c $< -o $@
+kernel/ramfs.o: kernel/ramfs.c kernel/ramfs.h
+	$(CC) $(CFLAGS) -I kernel -c $< -o $@
 kernel/process_start.o: kernel/process_start.c
 	$(CC) $(CFLAGS) -c $< -o $@
 $(KERNEL): $(OBJS) linker.ld
@@ -64,3 +67,8 @@ qemu: $(KERNEL)
 		-bios /usr/share/qemu/opensbi-riscv64-generic-fw_dynamic.bin \
 		-kernel $(KERNEL) \
 		-nographic
+
+demo:
+	bash tests/demo.sh
+
+.PHONY: all clean qemu demo

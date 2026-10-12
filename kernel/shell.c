@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "process.h"
+#include "ramfs.h"
 
 #define UART_BASE 0x10000000UL
 #define UART_RHR  (*(volatile uint8_t *)(UART_BASE + 0))
@@ -103,7 +104,7 @@ void shell_run(void)
         }
 
         if (same(command, "help")) {
-            print("Commands: help, hello, ps, uptime, uname, ticks, clear\n");
+            print("Commands: help, hello, ps, uptime, uname, ticks, ls, cat <file>, clear\n");
         } else if (same(command, "hello")) {
             print("Hello from NanoBoot!\n");
         } else if (same(command, "ps")) {
@@ -135,6 +136,27 @@ void shell_run(void)
             print(" timer ticks)\n");
         } else if (same(command, "uname")) {
             print("NanoBoot rv64 (RISC-V Sv39)\n");
+        } else if (same(command, "ls")) {
+            size_t count;
+            const ramfs_file_t *files = ramfs_files(&count);
+            for (size_t i = 0; i < count; i++) {
+                print(files[i].name);
+                print("\n");
+            }
+        } else if (command[0] == 'c' && command[1] == 'a' &&
+                   command[2] == 't' && command[3] == ' ') {
+            const ramfs_file_t *file = ramfs_find(&command[4]);
+            if (file == 0) {
+                print("cat: file not found\n");
+            } else {
+                for (size_t i = 0; i < file->size; i++) {
+                    char c = file->data[i];
+                    if (c == '\n') {
+                        putchar_uart('\r');
+                    }
+                    putchar_uart(c);
+                }
+            }
         } else if (same(command, "ticks")) {
             uint64_t sstatus_value;
             uint64_t sie_value;

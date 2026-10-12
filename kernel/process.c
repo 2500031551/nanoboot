@@ -1,9 +1,9 @@
 
+#include <stdint.h>
 #include "process.h"
 
 /* Functions provided by other kernel files */
 extern void process_start(void);
-extern void child_program(void);
 extern void context_switch(context_t *old_context,
                            context_t *new_context);
 extern unsigned long timer_tick_count(void);
@@ -76,16 +76,14 @@ int process_parent_pid(int pid)
 /* Create a child process */
 int process_fork(void)
 {
+    int parent_pid = process_current_pid();
+    int parent_index = parent_pid - 1;
+    if (parent_index < 0 || parent_index >= MAX_PROCESSES) return -1;
+
     for (int i = 1; i < MAX_PROCESSES; i++)
     {
         if (process_table[i].state == UNUSED)
         {
-            int parent_pid = process_current_pid();
-            if (parent_pid < 0)
-            {
-                return -1;
-            }
-
             process_table[i].pid = i + 1;
             process_table[i].parent_pid = parent_pid;
             process_table[i].state = READY;
@@ -112,14 +110,43 @@ int process_fork(void)
             process_table[i].context.s10 = 0;
             process_table[i].context.s11 = 0;
 
-            /* Initialize the child's trap frame */
-            clear_words((volatile unsigned long *)&process_table[i].trapframe,
-                        sizeof(trapframe_t) / sizeof(unsigned long));
-            process_table[i].trapframe.sepc = (unsigned long)child_program;
-            process_table[i].trapframe.sstatus = (1UL << 5) | (1UL << 18); /* SPIE, SUM */
-            process_table[i].trapframe.x[2] =
-                (unsigned long)(process_table[i].user_stack +
-                                sizeof(process_table[i].user_stack));
+            /* Clone the saved user state and its one-page user stack. */
+            volatile unsigned long *dst_frame =
+                (volatile unsigned long *)&process_table[i].trapframe;
+            const unsigned long *src_frame =
+                (const unsigned long *)&process_table[parent_index].trapframe;
+            for (unsigned long word = 0;
+                 word < sizeof(trapframe_t) / sizeof(unsigned long); word++)
+                dst_frame[word] = src_frame[word];
+
+            volatile unsigned char *dst_stack = process_table[i].user_stack;
+            const unsigned char *src_stack =
+                process_table[parent_index].user_stack;
+            for (unsigned long byte = 0;
+                 byte < sizeof(process_table[i].user_stack); byte++)
+                dst_stack[byte] = src_stack[byte];
+
+            uint64_t old_low = (uint64_t)process_table[parent_index].user_stack;
+            uint64_t old_high = old_low + sizeof(process_table[parent_index].user_stack);
+            uint64_t new_low = (uint64_t)process_table[i].user_stack;
+            for (int reg = 0; reg < 32; reg++) {
+                uint64_t value = process_table[i].trapframe.x[reg];
+                if (value >= old_low && value < old_high)
+                    process_table[i].trapframe.x[reg] = new_low + value - old_low;
+            }
+            volatile unsigned long *stack_words =
+                (volatile unsigned long *)process_table[i].user_stack;
+            for (unsigned long word = 0;
+                 word < sizeof(process_table[i].user_stack) / sizeof(unsigned long);
+                 word++) {
+                uint64_t value = stack_words[word];
+                if (value >= old_low && value < old_high)
+                    stack_words[word] = new_low + value - old_low;
+            }
+
+            /* Parent sees child PID; child resumes after fork() with zero. */
+            process_table[i].trapframe.sepc += 4;
+            process_table[i].trapframe.x[10] = 0;
 
             return process_table[i].pid;
         }

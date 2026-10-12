@@ -3,7 +3,8 @@
 #include "vm.h"
 
 extern void trap_entry(void);
-extern uint64_t syscall_handler(uint64_t syscall_number, uint64_t arg0);
+extern uint64_t syscall_handler(uint64_t syscall_number, uint64_t arg0,
+                                uint64_t arg1);
 extern void timer_on_interrupt(void);
 extern uint64_t timer_tick_count(void);
 
@@ -108,10 +109,6 @@ void trap_handler(trapframe_t *frame)
         }
     }
 
-    print_text("Trap occurred! scause = ");
-    print_hex(cause);
-    print_text("\n");
-
     /* User and supervisor environment calls. */
     if (cause == 8 || cause == 9) {
         int running_index = process_index(process_current_pid());
@@ -120,8 +117,8 @@ void trap_handler(trapframe_t *frame)
         }
 
         uint64_t syscall_number = frame->x[17]; /* a7 */
-        print_text("Syscall number received!\n");
-        uint64_t result = syscall_handler(syscall_number, frame->x[10]);
+        uint64_t result = syscall_handler(syscall_number, frame->x[10],
+                                          frame->x[11]);
 
         if (running_index >= 0 &&
             process_table[running_index].state == RUNNING) {

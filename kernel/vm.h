@@ -50,4 +50,5 @@ pagetable_t *get_kernel_pagetable(void);
 void vm_kernel_map(void);
 void vm_enable(void);
 void vm_switch_process(int process_index);
+int vm_user_accessible(int process_index, uint64_t virtual_address);
 #endif

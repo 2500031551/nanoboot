@@ -45,7 +45,5 @@ stack_top:
 .globl __bss_start
 __bss_start:
 
-    .space 0
-
 .globl __bss_end
 __bss_end:
