@@ -29,13 +29,15 @@ uptime
 uname
 ls
 cat about.txt
+cat README.md
 cat missing.txt
 hello
 clear
 isolation
 ```
 
-Expected `ls` entries: `welcome.txt`, `about.txt`, and `roadmap.txt`. The last
+Expected `ls` entries include `welcome.txt`, `about.txt`, `roadmap.txt`, and
+`README.md`. The last
 `cat` should report that the file was not found. Quit with Ctrl+A, X.
 
 Stage 9 adds `prasanthi`/`whoami` identity output, `stage` and `about` project

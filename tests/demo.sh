@@ -10,7 +10,7 @@ trap 'rm -f "$log"' EXIT
 
 # Allow the boot-time process/timer demonstration to finish, exercise the
 # interactive shell, then send QEMU's Ctrl+A X escape sequence.
-{ sleep 8; printf 'help\rprasanthi\rwhoami\rstage\rabout\rpwd\rps\rgetpid\rticks\ruptime\runame\rls\rcat about.txt\rcat missing.txt\risolation\rhello\rclear\r'; sleep 1; printf '\001x'; } |
+{ sleep 8; printf 'help\rprasanthi\rwhoami\rstage\rabout\rpwd\rps\rgetpid\rticks\ruptime\runame\rls\rcat README.md\rcat about.txt\rcat missing.txt\risolation\rhello\rclear\r'; sleep 1; printf '\001x'; } |
     timeout 30s make qemu >"$log" 2>&1
 
 cat "$log"
@@ -24,6 +24,9 @@ grep -q 'User stack permission matrix: PASS' "$log"
 grep -q 'PID 1' "$log"
 grep -q 'Prasanthi Lakshmi' "$log"
 grep -q 'Stage 9:' "$log"
+grep -q 'NanoBoot rv64 RISC-V Sv39' "$log"
+grep -q 'Stage 9 demonstrates a read-only in-memory filesystem' "$log"
 grep -q 'welcome.txt' "$log"
 grep -q 'cat: file not found' "$log"
+awk '/Wait returned child PID = 2/ { reaped=NR } /Child PID = 2/ { if (reaped && NR > reaped) reused=1 } END { exit !reused }' "$log"
 echo 'NanoBoot demo checks passed.'

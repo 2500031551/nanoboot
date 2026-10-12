@@ -17,7 +17,7 @@ make qemu
 ```
 
 At the U-mode `nanoboot>` prompt, try `help`, `prasanthi`, `stage`, `about`,
-`ps`, `getpid`, `ticks`, `uptime`, `pwd`, `ls`, `cat about.txt`, and
+`ps`, `getpid`, `ticks`, `uptime`, `pwd`, `ls`, `cat README.md`, `cat about.txt`, and
 `isolation`. Exit QEMU with **Ctrl+A**, then **X**.
 
 The QEMU command expects OpenSBI at
